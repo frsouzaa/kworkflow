@@ -4,6 +4,7 @@
 
 declare -g GRUB_CFG_PATH='/boot/grub/grub.cfg'
 declare -g DEFAULT_GRUB_CMD_UPDATE='grub-mkconfig --output=/boot/grub/grub.cfg'
+declare -g BASE_GRUB_CMD='grub'
 
 # Some distributions, such as Fedora, use GRUB2 as the default bootloader. On
 # those systems, grub-mkconfig command is replaced by grub2-mkconfig. This function
@@ -27,6 +28,7 @@ function define_grub_cmd_update()
       return 2 # ENOENT
     fi
     DEFAULT_GRUB_CMD_UPDATE="grub2-mkconfig --output=/boot/grub2/grub.cfg"
+    BASE_GRUB_CMD='grub2'
   fi
 
   return 0
@@ -114,6 +116,7 @@ function setup_grub_reboot_for_new_kernel()
   local kernel_image_name="$2"
   local cmd_sudo="$3"
   local flag="$4"
+  local cmd
   local grub_file_raw
   local submenu
   local menuentry
@@ -154,7 +157,8 @@ function setup_grub_reboot_for_new_kernel()
     submenu="${submenu}>"
   fi
 
-  cmd_manager "$flag" "${cmd_sudo}grub-reboot '${submenu}${menuentry}'"
+  cmd="${BASE_GRUB_CMD}-reboot"
+  cmd_manager "$flag" "${cmd_sudo}${cmd} '${submenu}${menuentry}'"
 }
 
 function total_of_installed_kernels()
