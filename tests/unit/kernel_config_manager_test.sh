@@ -343,7 +343,7 @@ function test_get_config_from_proc()
   export PROC_CONFIG_PATH='proc/config.gz'
 
   declare -la expected_cmd=(
-    'sudo modprobe -q configs && [ -s proc/config.gz ]'
+    'sudo modprobe --quiet configs && [ -s proc/config.gz ]'
     'zcat /proc/config.gz > .config'
   )
 
@@ -435,8 +435,8 @@ function test_get_config_from_boot_inside_env_remote()
 
   unset expected_cmd
   declare -a expected_cmd=(
-    'ssh -p 3333 juca@127.0.0.1 sudo "[ -f ./boot/config-ssh -p 3333 juca@127.0.0.1 sudo "uname -r" ]"'
-    "rsync --info=progress2 -e 'ssh -p 3333' juca@127.0.0.1:./boot/config-ssh -p 3333 juca@127.0.0.1 sudo \"uname -r\" /tmp/something -LrlptD --rsync-path='sudo rsync'"
+    'ssh -p 3333 juca@127.0.0.1 sudo "[ -f ./boot/config-TEST_MODE ]"'
+    "rsync --info=progress2 -e 'ssh -p 3333' juca@127.0.0.1:./boot/config-TEST_MODE /tmp/something/.config -LrlptD --rsync-path='sudo rsync'"
   )
 
   output=$(get_config_from_boot 'TEST_MODE' '' 3)
@@ -509,9 +509,9 @@ function test_fetch_config()
   mk_fake_kernel_root "$PWD"
 
   expected_output=(
-    "mkdir -p ${KW_CACHE_DIR}/config"
+    "mkdir --parents ${KW_CACHE_DIR}/config"
     # Note: since we are creating a faking /proc, we dropped '/'.
-    'sudo modprobe -q configs && [ -s proc/config.gz ]'
+    'sudo modprobe --quiet configs && [ -s proc/config.gz ]'
     'zcat /proc/config.gz > .config'
     'make olddefconfig'
     "rm -rf ${KW_CACHE_DIR}/config"
@@ -521,7 +521,7 @@ function test_fetch_config()
   compare_command_sequence '' "$LINENO" 'expected_output' "$output"
 
   expected_output=(
-    "mkdir -p ${KW_CACHE_DIR}/config"
+    "mkdir --parents ${KW_CACHE_DIR}/config"
     'zcat /proc/config.gz > .config'
     'make olddefconfig'
     "rm -rf ${KW_CACHE_DIR}/config"
@@ -542,7 +542,7 @@ function test_fetch_config()
 
   # Say yes to overwriting the file
   expected_output=(
-    "mkdir -p ${KW_CACHE_DIR}/config"
+    "mkdir --parents ${KW_CACHE_DIR}/config"
     "cp ${PWD}/.config ${KW_CACHE_DIR}/config"
     'zcat /proc/config.gz > .config'
     'make olddefconfig'
@@ -558,7 +558,7 @@ function test_fetch_config()
   compare_command_sequence '' "$LINENO" 'expected_output' "$output"
 
   expected_output=(
-    "mkdir -p ${KW_CACHE_DIR}/config"
+    "mkdir --parents ${KW_CACHE_DIR}/config"
     "cp ${PWD}/.config ${KW_CACHE_DIR}/config"
     'zcat /proc/config.gz > newconfig'
     'make olddefconfig'
@@ -581,7 +581,7 @@ function test_fetch_config()
   mkdir "${root}proc"
   touch "${root}proc/config.gz"
   expected_output=(
-    "mkdir -p ${KW_CACHE_DIR}/config"
+    "mkdir --parents ${KW_CACHE_DIR}/config"
     'zcat /proc/config.gz > .config'
     'make olddefconfig'
     "make localmodconfig LSMOD=$KW_CACHE_DIR/lsmod"
@@ -594,7 +594,7 @@ function test_fetch_config()
   compare_command_sequence '' "$LINENO" 'expected_output' "$output"
 
   expected_output=(
-    "ssh -p 1234 mary@localhost sudo \"mkdir -p /tmp/kw\""
+    "ssh -p 1234 mary@localhost sudo \"mkdir --parents /tmp/kw\""
     "ssh -p 1234 mary@localhost sudo \"[ -f /proc/config.gz ]\""
     "ssh -p 1234 mary@localhost sudo \"zcat /proc/config.gz > /tmp/kw/.config\""
     "rsync -e \"ssh -p 1234\" mary@localhost:/tmp/kw/.config $PWD"

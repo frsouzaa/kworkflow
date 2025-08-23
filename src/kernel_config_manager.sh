@@ -232,7 +232,7 @@ function get_config_from_proc()
   local output="$2"
   local target="$3"
   local ret
-  local -r CMD_LOAD_CONFIG_MODULE="modprobe -q configs && [ -s ${PROC_CONFIG_PATH} ]"
+  local -r CMD_LOAD_CONFIG_MODULE="modprobe --quiet configs && [ -s ${PROC_CONFIG_PATH} ]"
   local CMD_GET_CONFIG="zcat /proc/config.gz > ${output}"
   local config_base_path="$PWD"
 
@@ -240,6 +240,7 @@ function get_config_from_proc()
     config_base_path="${options_values['ENV_PATH_KBUILD_OUTPUT_FLAG']}"
   fi
 
+  # If remote, change where the config will be saved
   [[ "$target" == 3 ]] && CMD_GET_CONFIG="zcat /proc/config.gz > /tmp/${output}"
 
   case "$target" in
@@ -251,8 +252,12 @@ function get_config_from_proc()
       # Try to find /proc/config, if we cannot find, attempt to load the module
       # and try it again. If we fail, give of of using /proc/config
       if [[ ! -f "$PROC_CONFIG_PATH" ]]; then
+        [[ -n "${options_values['VERBOSE']}" ]] && printf '%s\n' "${PROC_CONFIG_PATH} not available. Attempt to load module"
         cmd_manager "$flag" "sudo ${CMD_LOAD_CONFIG_MODULE}"
-        [[ "$?" != 0 ]] && return 95 # Operation not supported
+        if [[ "$?" != 0 ]]; then
+          [[ -n "${options_values['VERBOSE']}" ]] && printf '%s\n' "Failed to load configs module."
+          return 95 # Operation not supported
+        fi
       fi
 
       cmd_manager "$flag" "$CMD_GET_CONFIG"
@@ -302,22 +307,26 @@ function get_config_from_boot()
   fi
 
   case "$target" in
-    1) # VM
-      # TODO: We can support VM in this scenario
-      return 95 # We do not support this option with VM
+    1) # VM, We do not support this option with VM
+      return 95
       ;;
     2) # LOCAL
-      cmd="cp ${root}boot/config-$(uname -r) ${output} 2>/dev/null"
+      cmd="cp ${root}boot/config-$(uname --kernel-release) ${output} 2>/dev/null"
       cmd_manager "$flag" "$cmd"
       [[ "$?" != 0 ]] && return 95 # ENOTSUP
       return 0
       ;;
     3) # REMOTE
-      kernel_release=$(cmd_remotely "$flag" 'uname -r')
+      cmd='uname --kernel-release'
+      [[ -n "${options_values['VERBOSE']}" ]] && printf '%s\n' "$cmd"
+      kernel_release=$(cmd_remotely 'SILENT' "$cmd")
+
+      [[ "$flag" == 'TEST_MODE' ]] && kernel_release='TEST_MODE'
+
       cmd_remotely "$flag" "[ -f ${root}boot/config-${kernel_release} ]"
       [[ "$?" != 0 ]] && return 95 # ENOTSUP
 
-      remote2host "$flag" "${root}boot/config-${kernel_release}" "$config_base_path"
+      remote2host "$flag" "${root}boot/config-${kernel_release}" "${config_base_path}/.config"
       return 0
       ;;
   esac
@@ -421,7 +430,9 @@ function fetch_config()
   # Folder to store files in case there's an interruption and we need to return
   # things to the state they were before or in case we need a place to store
   # files temporarily.
-  cmd="mkdir -p ${KW_CACHE_DIR}/config"
+  cmd='mkdir '
+  [[ "$flag" == 'VERBOSE' ]] && cmd+='--verbose '
+  cmd+="--parents ${KW_CACHE_DIR}/config"
   cmd_manager "$flag" "$cmd"
 
   if [[ -f "${config_base_path}/${output}" ]]; then
@@ -430,13 +441,17 @@ function fetch_config()
       return 125 #ECANCELED
     fi
 
-    cmd="cp ${config_base_path}/${output} ${KW_CACHE_DIR}/config"
+    cmd='cp '
+    [[ "$flag" == 'VERBOSE' ]] && cmd+='--verbose '
+    cmd+="${config_base_path}/${output} ${KW_CACHE_DIR}/config"
     cmd_manager "$flag" "$cmd"
   fi
 
   # If --output is provided, we need to backup the current config file
   if [[ -f "${config_base_path}/.config" && "$output" != '.config' ]]; then
-    cmd="cp ${config_base_path}/.config ${KW_CACHE_DIR}/config"
+    cmd='cp '
+    [[ "$flag" == 'VERBOSE' ]] && cmd+='--verbose '
+    cmd+="${config_base_path}/.config ${KW_CACHE_DIR}/config"
     cmd_manager "$flag" "$cmd"
   fi
 
