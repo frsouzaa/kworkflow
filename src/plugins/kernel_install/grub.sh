@@ -77,17 +77,21 @@ function get_grub_cfg_path()
   fi
 
   # Check in the /efi folder
-  grub_cfg_path=$(find '/efi/' -name 'grub.cfg')
-  if [[ -f "$grub_cfg_path" ]]; then
-    printf '%s\n' "$grub_cfg_path"
-    return 0
+  if [[ -d '/efi' ]]; then
+    grub_cfg_path=$(find '/efi/' -name 'grub.cfg')
+    if [[ -f "$grub_cfg_path" ]]; then
+      printf '%s\n' "$grub_cfg_path"
+      return 0
+    fi
   fi
 
   # Check in the /efi folder
-  grub_cfg_path=$(find '/boot/' -name 'grub.cfg')
-  if [[ -f "$grub_cfg_path" ]]; then
-    printf '%s\n' "$grub_cfg_path"
-    return 0
+  if [[ -d '/boot' ]]; then
+    grub_cfg_path=$(find '/boot/' -name 'grub.cfg')
+    if [[ -f "$grub_cfg_path" ]]; then
+      printf '%s\n' "$grub_cfg_path"
+      return 0
+    fi
   fi
 
   return 2 # ENOENT
