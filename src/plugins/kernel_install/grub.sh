@@ -66,12 +66,22 @@ function run_bootloader_update()
   # Setup grub to boot the new kernel
   if [[ "$boot_into_new_kernel_once" == 1 ]]; then
     setup_grub_reboot_for_new_kernel "$name" "$kernel_image_name" "$cmd_sudo" "$flag"
+    if [[ "$?" == 2 ]]; then
+      warning 'kw was unable to set up the first boot to the new kernel.'
+    fi
+    return 0
   fi
 }
 
 function get_grub_cfg_path()
 {
+  local name="$1"
+  local prefix="$2"
   local grub_cfg_path="${GRUB_CFG_PATH}"
+  local grub_cfg_to_return
+  local total_matches
+  local menuentry
+  local efi_path
 
   if [[ -f "$grub_cfg_path" ]]; then
     printf '%s\n' "$grub_cfg_path"
@@ -79,21 +89,40 @@ function get_grub_cfg_path()
   fi
 
   # Check in the /efi folder
-  if [[ -d '/efi' ]]; then
-    grub_cfg_path=$(find '/efi/' -name 'grub.cfg')
-    if [[ -f "$grub_cfg_path" ]]; then
-      printf '%s\n' "$grub_cfg_path"
-      return 0
-    fi
+  if [[ -d "${prefix}/efi" ]]; then
+    grub_cfg_path=$(find "${prefix}/efi/" -name 'grub.cfg')
+  # Check in the /boot folder
+  elif [[ -d "${prefix}/boot" ]]; then
+    grub_cfg_path=$(find "${prefix}/boot/" -name 'grub.cfg')
+  else
+    return 2 # ENOENT
   fi
 
-  # Check in the /efi folder
-  if [[ -d '/boot' ]]; then
-    grub_cfg_path=$(find '/boot/' -name 'grub.cfg')
-    if [[ -f "$grub_cfg_path" ]]; then
-      printf '%s\n' "$grub_cfg_path"
-      return 0
-    fi
+  total_matches=$(printf '%s\n' "$grub_cfg_path" | wc --lines)
+  # Disambiguate between multiple grub.cfg files.
+  if [[ "$total_matches" -gt 1 ]]; then
+    while IFS=$'\n' read -r line; do
+      [[ -f "$grub_cfg_path" ]] && continue
+
+      grub_file_raw=$(cat "$line")
+
+      # Check if it is a valid config
+      menuentry=$(grep --max-count 1 --ignore-case ".*menuentry.*${name}" "$line")
+      [[ -z "$menuentry" ]] && continue
+
+      # TODO:
+      # If there is more than one valid file, for now, we just get the latest.
+      # Right now I don't see any issue, but I can see this to be a problem in
+      # the future.
+      grub_cfg_to_return="$line"
+    done <<< "$grub_cfg_path"
+
+    grub_cfg_path="$grub_cfg_to_return"
+  fi
+
+  if [[ -f "$grub_cfg_path" ]]; then
+    printf '%s\n' "$grub_cfg_path"
+    return 0
   fi
 
   return 2 # ENOENT
@@ -118,13 +147,13 @@ function setup_grub_reboot_for_new_kernel()
   local flag="$4"
   local cmd
   local grub_file_raw
-  local submenu
-  local menuentry
+  local submenu=''
+  local menuentry=''
   local kernel_line_position
   local submenu_line_position
   local grub_cfg_path
 
-  grub_cfg_path=$(get_grub_cfg_path)
+  grub_cfg_path=$(get_grub_cfg_path "$name")
   if [[ "$?" == 2 ]]; then
     printf 'kw did not find grub.cfg\n'
     return 2
@@ -135,7 +164,8 @@ function setup_grub_reboot_for_new_kernel()
   [[ -z "$grub_file_raw" ]] && return 22
 
   # Process menu entry
-  menuentry=$(printf '%s' "$grub_file_raw" | grep --line-number --ignore-case ".*menuentry.*${name}")
+  # Ignore osprober system
+  menuentry=$(printf '%s' "$grub_file_raw" | grep --line-number --ignore-case ".*menuentry.*${name}" | grep --invert-match 'osprober')
   menuentry=$(printf '%s' "$menuentry" | grep --invert-match 'recovery')
   kernel_line_position=$(printf '%s' "$menuentry" | cut --delimiter=':' --fields=1)
   menuentry=$(printf '%s' "$menuentry" | sed "s/^[^']*'\([^']*\)'.*/\1/")
@@ -144,17 +174,20 @@ function setup_grub_reboot_for_new_kernel()
   submenu_raw=$(printf '%s' "$grub_file_raw" | grep --line-number --ignore-case 'submenu')
   submenu="$submenu_raw"
 
-  while IFS= read -r line; do
-    submenu_line_position=$(printf '%s' "$line" | cut --delimiter=':' --fields=1)
-    # We don't care about submenus after the kernel match
-    [[ "$submenu_line_position" -gt "$kernel_line_position" ]] && break
-    submenu="$line"
-  done <<< "$submenu_raw"
+  if [[ -n "$submenu_raw" ]]; then
+    while IFS= read -r line; do
+      [[ -z "$line" ]] && continue
+      submenu_line_position=$(printf '%s' "$line" | cut --delimiter=':' --fields=1)
+      # We don't care about submenus after the kernel match
+      [[ "$submenu_line_position" -gt "$kernel_line_position" ]] && break
+      submenu="$line"
+    done <<< "$submenu_raw"
 
-  submenu=$(printf '%s' "$submenu" | sed "s/^[^']*'\([^']*\)'.*/\1/")
+    submenu=$(printf '%s' "$submenu" | sed "s/^[^']*'\([^']*\)'.*/\1/")
 
-  if [[ -n "$submenu" ]]; then
-    submenu="${submenu}>"
+    if [[ -n "$submenu" ]]; then
+      submenu="${submenu}>"
+    fi
   fi
 
   cmd="${BASE_GRUB_CMD}-reboot"
