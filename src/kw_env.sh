@@ -194,7 +194,6 @@ function create_new_env()
   local local_kw_build_config="${local_kw_configs}/build.config"
   local local_kw_deploy_config="${local_kw_configs}/deploy.config"
   local env_name=${options_values['CREATE']}
-  local encoded_pwd=$(get_encoded_pwd)
   local cache_build_path="$KW_CACHE_DIR"
   local current_env_name
   local output
@@ -238,18 +237,18 @@ function create_new_env()
   done
 
   # Handle build and config folder
-  cmd="mkdir --parents ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${env_name}"
+  cmd="mkdir -p ${cache_build_path}/${ENV_DIR}/${env_name}"
   cmd_manager "$flag" "$cmd"
 
   current_env_name=$(get_current_env_name)
   ret="$?"
   # If we already have an env, we should copy the config file from it.
   if [[ "$ret" == 0 ]]; then
-    cmd="cp ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${current_env_name}/.config ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${env_name}/.config"
+    cmd="cp ${cache_build_path}/${ENV_DIR}/${current_env_name}/.config ${cache_build_path}/${ENV_DIR}/${env_name}/.config"
     cmd_manager "$flag" "$cmd"
     return
   elif [[ -f "${PWD}/.config" ]]; then
-    cmd="cp ${PWD}/.config ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${env_name}"
+    cmd="cp ${PWD}/.config ${cache_build_path}/${ENV_DIR}/${env_name}"
     cmd_manager "$flag" "$cmd"
     return
   fi
@@ -259,10 +258,10 @@ function create_new_env()
   warning 'It is recommended to use kw kernel-config-manager.'
 
   if [[ -e /proc/config.gz ]]; then
-    cmd="zcat /proc/config.gz > ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${env_name}/.config"
+    cmd="zcat /proc/config.gz > ${cache_build_path}/${ENV_DIR}/${env_name}/.config"
     cmd_manager "$flag" "$cmd"
   elif [[ -e "/boot/config-$(uname -r)" ]]; then
-    cmd="cp /boot/config-$(uname -r) ${cache_build_path}/${ENV_DIR}/${encoded_pwd}/${env_name}/.config"
+    cmd="cp /boot/config-$(uname -r) ${cache_build_path}/${ENV_DIR}/${env_name}/.config"
     cmd_manager "$flag" "$cmd"
   else
     warning 'kw was not able to find any valid config file for the new env'
@@ -277,7 +276,6 @@ function destroy_env()
   local cache_build_path="$KW_CACHE_DIR"
   local current_env
   local env_name=${options_values['DESTROY']}
-  local encoded_pwd=$(get_encoded_pwd)
   local cmd
 
   flag=${flag:-'SILENT'}
@@ -304,7 +302,7 @@ function destroy_env()
     fi
   fi
 
-  cmd="rm --recursive --force ${local_kw_configs:?}/${ENV_DIR}/${env_name} && rm -rf ${cache_build_path:?}/${ENV_DIR}/${encoded_pwd}/${env_name}"
+  cmd="rm -rf ${local_kw_configs:?}/${ENV_DIR}/${env_name} && rm -rf ${cache_build_path:?}/${ENV_DIR}/${env_name}"
   cmd_manager "$flag" "$cmd"
   success "The \"${env_name}\" environment has been destroyed."
 }
@@ -346,14 +344,14 @@ function list_env_available_envs()
   if [[ -f "${local_kw_configs}/${ENV_CURRENT_FILE}" ]]; then
     current_env=$(< "${local_kw_configs}/${ENV_CURRENT_FILE}")
     say 'Current env:'
-    printf ' -> %s: %s\n\n' "$current_env" "${KW_CACHE_DIR}/${ENV_DIR}/$(get_encoded_pwd)/${current_env}"
+    printf ' -> %s: %s\n\n' "$current_env" "${KW_CACHE_DIR}/${ENV_DIR}/${current_env}"
   fi
 
   warning 'Other kw environments:'
   # For the below loop, we want to split the array
   # shellcheck disable=SC2068
   for env in ${all_envs[@]}; do
-    printf ' * %s: %s\n' "$env" "${KW_CACHE_DIR}/${ENV_DIR}/$(get_encoded_pwd)/${env}"
+    printf ' * %s: %s\n' "$env" "${KW_CACHE_DIR}/${ENV_DIR}/${env}"
   done
 }
 
