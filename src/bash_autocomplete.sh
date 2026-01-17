@@ -30,7 +30,7 @@ function _kw_autocomplete()
                         --force --create-package --from-package --boot-into-new-kernel-once'
   kw_options['d']="${kw_options['deploy']}"
 
-  kw_options['bd']='--verbose'
+  kw_options['bd']='--verbose --create-package --reboot --no-reboot --boot-into-new-kernel-once --remote'
 
   kw_options['diff']='--no-interactive --verbose'
   kw_options['df']="${kw_options['diff']}"

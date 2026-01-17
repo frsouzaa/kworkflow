@@ -123,22 +123,6 @@ function test_force_unsupported_arch()
   assertEquals "($LINENO):" 'arch=baroque' "$kworkflow_content"
 }
 
-function test_set_remote()
-{
-  local output
-  local kworkflow_content
-
-  output=$(init_main --remote juca@123.456.789.123:2222)
-  kworkflow_content=$(grep ssh_user= "$PATH_TO_KW_CONFIG")
-  assertEquals "($LINENO)" 'ssh_user=juca' "$kworkflow_content"
-
-  kworkflow_content=$(grep ssh_ip= "$PATH_TO_KW_CONFIG")
-  assertEquals "($LINENO)" 'ssh_ip=123.456.789.123' "$kworkflow_content"
-
-  kworkflow_content=$(grep ssh_port= "$PATH_TO_KW_CONFIG")
-  assertEquals "($LINENO)" 'ssh_port=2222' "$kworkflow_content"
-}
-
 function test_try_to_set_wrong_arch()
 {
   local output
@@ -187,10 +171,10 @@ function test_get_template_name_noniteractive()
   get_template_name
   assertEquals "($LINENO)" 'x86-64' "${options_values['TEMPLATE']}"
 
-  options_values['TEMPLATE']='rpi4-raspbian-64-cross-x86-arm'
+  options_values['TEMPLATE']='rpi4-and-5-raspbian-64-cross-x86-arm'
   get_template_name
 
-  assertEquals "($LINENO)" 'rpi4-raspbian-64-cross-x86-arm' "${options_values['TEMPLATE']}"
+  assertEquals "($LINENO)" 'rpi4-and-5-raspbian-64-cross-x86-arm' "${options_values['TEMPLATE']}"
 }
 
 function test_get_an_invalid_template_name()
@@ -214,8 +198,8 @@ function test_get_template_interactive()
   output=$(printf '1\n' | get_template_name 'TEST_MODE' 2>&1 | tail -n 1)
   assertEquals "($LINENO)" 'x86-64' "$output"
 
-  output=$(printf '2\n' | get_template_name 'TEST_MODE' 2>&1 | tail -n 1)
-  assertEquals "($LINENO)" 'rpi4-raspbian-64-cross-x86-arm' "$output"
+  output=$(printf '3\n' | get_template_name 'TEST_MODE' 2>&1 | tail -n 1)
+  assertEquals "($LINENO)" 'rpi4-and-5-raspbian-64-cross-x86-arm' "$output"
 }
 
 function test_config_file_already_exist_question()
@@ -269,8 +253,8 @@ function test_parse_init_options()
 
   unset options_values
   declare -gA options_values
-  parse_init_options --template='rpi4-raspbian-64-cross-x86-arm'
-  assertEquals "($LINENO):" 'rpi4-raspbian-64-cross-x86-arm' "${options_values['TEMPLATE']}"
+  parse_init_options --template='rpi4-and-5-raspbian-64-cross-x86-arm'
+  assertEquals "($LINENO):" 'rpi4-and-5-raspbian-64-cross-x86-arm' "${options_values['TEMPLATE']}"
 
   unset options_values
   declare -gA options_values

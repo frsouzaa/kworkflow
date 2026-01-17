@@ -1,6 +1,7 @@
 include "${KW_LIB_DIR}/lib/kwlib.sh"
 include "${KW_LIB_DIR}/lib/kwio.sh"
 include "${KW_LIB_DIR}/lib/kw_config_loader.sh"
+include "${KW_LIB_DIR}/transition_functions.sh"
 
 declare -gA options_values
 
@@ -36,6 +37,7 @@ function build_kernel_main()
   local from_sha_arg
   local sha_base
   local merge_base
+  local encoded_pwd=$(get_encoded_pwd)
 
   parse_build_options "$@"
 
@@ -45,9 +47,11 @@ function build_kernel_main()
     exit 22 # EINVAL
   fi
 
+  migrate_old_envs_to_base64 'SILENT' 1
+
   env_name=$(get_current_env_name)
   if [[ "$?" == 0 ]]; then
-    options_values['ENV_PATH_KBUILD_OUTPUT_FLAG']="${KW_CACHE_DIR}/${ENV_DIR}/${env_name}"
+    options_values['ENV_PATH_KBUILD_OUTPUT_FLAG']="${KW_CACHE_DIR}/${ENV_DIR}/${encoded_pwd}/${env_name}"
     output_kbuild_flag=" O=${options_values['ENV_PATH_KBUILD_OUTPUT_FLAG']}"
   fi
 
@@ -119,8 +123,14 @@ function build_kernel_main()
   optimizations="-j$((parallel_cores * cpu_scaling_factor / 100))"
 
   if [[ -n "${options_values['CCACHE']}" ]]; then
-    [[ -n "$llvm" ]] && compiler='clang' || compiler='gcc'
-    optimizations="CC=\"ccache ${compiler} -fdiagnostics-color\" ${optimizations}"
+    if [[ -n "$cross_compile" ]]; then
+      # Cross-compilation: use cross-compiler with ccache
+      [[ -n "$llvm" ]] && compiler="${cross_compile}clang" || compiler="${cross_compile}gcc"
+    else
+      # Native compilation: use host compiler with ccache
+      [[ -n "$llvm" ]] && compiler='clang' || compiler='gcc'
+    fi
+    optimizations="KBUILD_BUILD_TIMESTAMP= CC=\"ccache ${compiler} -fdiagnostics-color\" ${optimizations}"
   fi
 
   if [[ -n "$doc_type" ]]; then
@@ -331,7 +341,7 @@ function parse_build_options()
   options_values['ARCH']="${build_config[arch]:-$arch_fallback}"
   options_values['MENU_CONFIG']=''
   options_values['CROSS_COMPILE']="${build_config[cross_compile]}"
-  options_values['CCACHE']="${build_config[ccache]}"
+  options_values['CCACHE']="${build_config[enable_ccache]:-no}"
   options_values['CPU_SCALING_FACTOR']="${build_config[cpu_scaling_factor]:-100}"
   options_values['INFO']=''
   options_values['DOC_TYPE']=''
@@ -349,6 +359,13 @@ function parse_build_options()
     options_values['USE_LLVM_TOOLCHAIN']=1
   else
     options_values['USE_LLVM_TOOLCHAIN']=''
+  fi
+
+  # Check ccache option
+  if [[ ${options_values['CCACHE']} == 'yes' ]]; then
+    options_values['CCACHE']=1
+  else
+    options_values['CCACHE']=''
   fi
 
   while [[ "$#" -gt 0 ]]; do

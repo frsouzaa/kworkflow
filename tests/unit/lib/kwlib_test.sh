@@ -854,7 +854,8 @@ function test_get_kernel_release()
 function test_get_kernel_release_with_env()
 {
   local output
-  local expected="make kernelrelease O=${KW_CACHE_DIR}/envs/fake_env --silent 2> /dev/null"
+  local encoded_pwd=$(get_encoded_pwd)
+  local expected="make kernelrelease O=${KW_CACHE_DIR}/envs/${encoded_pwd}/fake_env --silent 2> /dev/null"
 
   # shellcheck disable=SC2317
   function get_current_env_name()
@@ -884,7 +885,8 @@ function test_get_kernel_version()
 function test_get_kernel_version_with_env()
 {
   local output
-  local expected="make kernelversion O=${KW_CACHE_DIR}/envs/fake_env --silent 2> /dev/null"
+  local encoded_pwd=$(get_encoded_pwd)
+  local expected="make kernelversion O=${KW_CACHE_DIR}/envs/${encoded_pwd}/fake_env --silent 2> /dev/null"
 
   # shellcheck disable=SC2317
   function get_current_env_name()
@@ -913,6 +915,27 @@ function test_get_current_env_name()
 
   cd "$ORIGINAL_DIR" || {
     fail "($LINENO) It was not possible to move back to original directory"
+    return
+  }
+}
+
+function test_get_encoded_pwd()
+{
+  local result
+  local expected
+  local base64_pwd
+
+  cd "${SHUNIT_TMPDIR}" || {
+    fail "(${LINENO}): It was not possible to move into ${SHUNIT_TMPDIR}"
+    return
+  }
+
+  result=$(get_encoded_pwd)
+  expected="$(printf '%s' "$PWD" | base64 --wrap=0)"
+  assertEquals "(${LINENO}) - Should return base64(PWD)" "$expected" "$result"
+
+  cd "${ORIGINAL_DIR}" || {
+    fail "($LINENO): It was not possible to move back to original directory"
     return
   }
 }
