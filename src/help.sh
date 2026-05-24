@@ -10,6 +10,7 @@ function kworkflow_help()
     '  Remote - machine reachable via the network' \
     '' \
     'Commands:' \
+    '  apply-patch,ap - Apply a patch from a URL' \
     '  backup - Save or restore kw data' \
     '  bd - Build and install kernel image/modules' \
     '  build,b - Build kernel' \
